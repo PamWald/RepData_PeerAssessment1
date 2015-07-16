@@ -1,25 +1,116 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research: Assignment 1"
+output: html_document
 ---
 
 
-## Loading and preprocessing the data
+##Part One: Loading and preprocessing the data.
+```{r}
+activity <- read.csv("activity.csv", stringsAsFactors = FALSE)
+```
 
 
 
-## What is mean total number of steps taken per day?
+##Part Two: What is the mean total number of steps taken per day?
+
+###1. Calculate the total number of steps taken per day.
+```{r}
+library(plyr)
+per_day <- ddply(activity, .(date), summarise, steps_per_day = sum(steps))  
+```
+
+###2. Histogram showing total number of steps taken each day.
+```{r}
+library(ggplot2)
+qplot(steps_per_day, data=per_day, geom = "histogram", 
+      main = "Total Steps Per Day", xlab = "Total Steps")
+```
+
+###3. Mean and median steps per day.
+```{r}
+mean(per_day$steps, na.rm=TRUE)
+```
+
+```{r}
+median(per_day$steps, na.rm=TRUE)
+```
 
 
 
-## What is the average daily activity pattern?
+##Part Three: What is the average daily activity pattern?
+
+###1. Plot the 5-minute interval(x-axis) and the average number of steps taken across all days (y-axis).
+```{r}
+library(plyr)
+avg_steps <- ddply(activity, .(interval), summarise, 
+                   avg_steps_per_day = mean(steps, na.rm=TRUE))
+
+plot(avg_steps$interval, avg_steps$avg_steps_per_day, type = "l", 
+     main = "Average Steps for Each Five-Minute Interval", 
+     xlab = "Five-Minute Interval", ylab = "Average Steps per Day")
+```
+
+
+##2. Which 5-minute interval, on average across all the days contains the maximum number of steps?
+```{r}
+avg_steps[(which.max(avg_steps$avg_steps_per_day)), 1]
+```
 
 
 
-## Imputing missing values
+##Part Four: Imputing missing values.
+
+###1. Total number of missing values in the dataset.
+```{r}
+sum(is.na(activity))
+```
+
+###2. Fill in missing values on the steps variable by substituting the mean for the corresponding five-minute interval.  The mean for each corresponding interval was previously calculated. 
+```{r}
+library(plyr)
+avg_steps <- ddply(activity, .(interval), summarise, 
+                   avg_steps_per_day = mean(steps, na.rm=TRUE))
+```
+
+###3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+```{r}
+activity2 <- merge(activity, avg_steps, by = "interval", all.x = TRUE)
+activity2$steps [which(is.na(activity2$steps))] <- activity2$avg_steps_per_day
+
+library(dplyr)
+activity2 <- select(activity2, -avg_steps_per_day)
+```
+
+###4. Make a histogram of the total number of steps taken each day.  Calculate the mean and median total number of steps taken per day.  The mean is higher than the estimate obtained in the first part of the assignment.  The median is slighlty lower than the estimate obtained in the first part of the assignment.  
+```{r} 
+library(plyr)
+per_day2 <- ddply(activity2, .(date), summarise, steps_per_day = sum(steps))  
+
+library(ggplot2)
+qplot(steps_per_day, data=per_day2, geom = "histogram", 
+      main = "Total Steps Per Day (with missing values imputed)", xlab = "Total Steps")
+
+mean(per_day2$steps)
+median(per_day2$steps)
+```
 
 
+##Part Five: Are there differences in activity patterns between weekdays and weekends?
 
-## Are there differences in activity patterns between weekdays and weekends?
+###1. Create new variable indicating whether given date is a weekday or weekend.
+```{r}
+activity2$days <- weekdays(as.Date(activity2$date))
+activity2$weekdays[activity2$days %in% c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')] <- 'weekday'
+activity2$weekdays[activity2$days %in% c('Saturday', 'Sunday')] <- 'weekend'
+```
+
+###2. Panel plot containing time series plot of 5-minute interval (x axis) and average number of steps taken averaged across all weekdays or weekend days.
+
+```{r}
+library(plyr)
+days_plot <- ddply(activity2, .(weekdays, interval), summarise, avg_steps = mean(steps))
+
+library(ggplot2)
+qplot(interval, avg_steps, data=days_plot, geom = "line", facets = .~weekdays, ylab = "average steps")
+```
+
